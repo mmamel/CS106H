@@ -28,6 +28,24 @@ us = UltrasonicSensor()
 gs = GyroSensor()
 tank_drive = MoveTank(OUTPUT_A, OUTPUT_B)
 
+def Rotate(angle):
+    #reset gyro
+    angle_degrees = math.degrees(angle)
+    gs.mode = 'GYRO-RATE';
+    gs.mode = 'GYRO-ANG';
+    bool = True;
+    tank_drive.on(left_speed=-10,right_speed=10)
+
+    while bool == True:
+        time.sleep(.1)
+
+        current_angle=gs.angle;
+        if current_angle > angle_degrees +1 or current_angle < angle_degrees -1:
+            bool = False;
+            #turn in place
+
+    tank_drive.off()
+
 def Rotate_until_clock(distance):
     us.mode ='US-DIST-CM'
     bool =True;
@@ -54,8 +72,6 @@ def move_until():
     bool = True
     us.mode ='US-DIST-CM'
     tank_drive.on(left_speed=10,right_speed=10)
-    #m1.run_forever(speed_sp=900)
-    #m2.run_forever(speed_sp=-900)
 
     while bool == True:
         time.sleep(.1)
@@ -63,14 +79,27 @@ def move_until():
         print("This is move_until distance: ", distance)
         if distance < 5:
             tank_drive.off()
-            bool = False;
-    #set up a sleep interval
+            bool = False
+def init_Distance_Array():
+    #reset gyro
+    gs.mode = 'GYRO-RATE';
+    gs.mode = 'GYRO-ANG';
+    us.mode ='US-DIST-CM'
+    array_distance=[];
+    array_angle=[];
 
-        #m1.stop()
-        #m2.stop()
-        #takes in an angle in radians and converts into degrees
-        #spins in a circle forever with intervals of 0.1 sec (time.sleep)
-        #and checks when it turned enough using gyro
+    current_angle=0;
+    tank_drive.on(left_speed=-5,right_speed=5)
+    while current_angle < 30:
+
+        time.sleep(.115)
+
+        distance= us.distance_centimeters_continuous;
+        print(distance)
+        array_distance.append(distance);
+    tank_drive.off(brake=True)
+
+    return array_distance
 
 def Distance_Array():
     #reset gyro
@@ -81,24 +110,17 @@ def Distance_Array():
     array_angle=[];
 
     current_angle=0;
-    tank_drive.on(left_speed=-2,right_speed=2)
-    while current_angle < 180:
+    tank_drive.on(left_speed=-5,right_speed=5)
+    while current_angle < 320:
 
         time.sleep(.115)
-        current_angle=gs.angle
-        array_angle.append(current_angle)
-        #print(current_angle)
 
-        #m1.run_forever(speed_sp=900)
-        #m2.run_forever(speed_sp=-900)
-        #tank_pair.on(30,-30)
-        #get angle
         distance= us.distance_centimeters_continuous;
         print(distance)
         array_distance.append(distance);
     tank_drive.off(brake=True)
 
-    return array_distance, array_angle;
+    return array_distance
 def Reset(distance):
     bool =True;
 
@@ -109,40 +131,30 @@ def Reset(distance):
         print("this is measurement:", measurement)
 
         if measurement > distance -1 and measurement < distance +1:
+            #this is to offset stopping too early
+            time.sleep(1)
             tank_drive.off(brake=True)
             bool = False;
+    #finds smallest distance
 def Container(array_distance):
 
     length = len(array_distance)
     print(length)
 
     small = array_distance[0];
-    #for x in range(length):
     for x in range(length):
-        #if(smallest>distance_array[x]):
         if small>array_distance[x]:
             small=array_distance[x]
-            #smallest=distance_array[x];
     return small
-def Distance_array_2(smallest, distance_array):
-    for x in range(1,5):
-        index = distance_array.index(smallest)
-        length=len(distance_array);
-        if index==length:
-            distance_array.pop(index-x)
-            distance_array.pop(0)
-        if index == 0:
-            distance_array.pop(index+x)
-            distance_array.pop(length)
-        if index != length or index!=0:
-            distance_array.pop(index+x)
-            distance_array.pop(index-x)
-    distance_array.pop(index)
-    return distance_array
 
+#checks if pill and container are the same color
 def colorChecker():
     bool = True
-    if c1.color == c2.color:
+    if c1.color == 5 and c2.color == 5:
+        print("this is pill color", c1.color)
+        print("this is container collor", c2.color)
+        return bool
+    elif c1.color == 3 and c2.color == 3:
         print("this is pill color", c1.color)
         print("this is container collor", c2.color)
         return bool
@@ -155,44 +167,32 @@ def pillDropper():
     turn = 360/11
     m3.on_for_degrees(10, turn, brake=True, block=True)
 def main():
-    bool = True;
-    array_distance, angle_array=Distance_Array();
-    len_First_Container = Container(array_distance)
-    index_first_distance = array_distance.index(len_First_Container)
-    distance_array_2 = Distance_array_2(len_First_Container, array_distance)
-    len_Sec_container = Container(distance_array_2)
-    index_second_distance = array_distance.index(len_Sec_container)
-    print("Computation complete")
-    if index_first_distance<index_second_distance:
-        Rotate_until_counter(len_First_Container)
-    if index_first_distance>index_second_distance:
-        Rotate_until_counter(len_Sec_container)
-
-    count = 0
-    while bool == True:
-        us.mode ='US-DIST-CM'
-        reset_distance = us.distance_centimeters
+    count = 0;
+    consec_bool = True;
+    while count < 10 :
+        if count == 0:
+            first_distance=init_Distance_Array()
+            closest_distance = Container(first_distance)
+        if count > 0:
+            array_distance=Distance_Array();
+            closest_distance = Container(array_distance)
+        Rotate_until_counter(closest_distance)
         move_until()
-        drop = colorChecker()
-        if drop == True or c2.color == 1:
-            tank_drive.off(brake=True)
-            count = count +1
-            pillDropper()
-            Reset(reset_distance)
-        if drop == False:
-            Reset(reset_distance)
-            if count%2 != 0:
-                Rotate_until_clock(len_Sec_container)
-                move_until()
-                count = count +1
-                pillDropper()
-            if count%2 == 0:
-                Rotate_until_counter(len_First_Container)
-                move_until()
-                count = count +1
-                pillDropper()
-        if count == 10:
-            bool = False
+        color_bool = colorChecker()
+            if color_bool == True:
+                while consec_bool == True:
+                    consec_bool = colorChecker()
+                    pillDropper()
+                    count = count+1
+            elif color_bool == False:
+                Reset(closest_distance)
+                Rotate(40)
 
 
 main();
+
+#this program fixes the two big problems. Gyro and US
+#by seraching for each container individually, the smallest value
+#can accurately be determined. The trade off is this method is much
+#slower due to our hardware design. It would be very efficient if we could
+#sort pill before hand.
