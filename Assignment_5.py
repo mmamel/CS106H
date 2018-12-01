@@ -1,3 +1,4 @@
+#hangman program
 def error_Handle_Word():
     bool = True;
     while bool == True:
